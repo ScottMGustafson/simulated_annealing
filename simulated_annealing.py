@@ -36,7 +36,7 @@ def simulated_annealing(fn, *x, **kwargs):
     Tmin=float(kwargs.pop("Tmin",.0001))
     alpha=float(kwargs.pop("alpha",0.9))
     T=float(kwargs.pop("Tstart",10000.))
-
+    epsilon=float(kwargs.pop("epsilon",10e-8)) #tolerance multiplier to define locked params
     max_steps=int(kwargs.pop("max_steps",1000))
     chi2_lim=int(kwargs.pop("chi2_lim",4))
     param_ranges=kwargs
@@ -53,8 +53,13 @@ def simulated_annealing(fn, *x, **kwargs):
             for i in range(max_steps):
                 new_guess={}
                 for key, val in guess.items():
-                    step_size=_step*np.fabs(param_ranges[key][1]-param_ranges[key][0])
-                    new_guess[key] = guess[key] + np.random.normal(scale=np.fabs(step_size))
+                    #if a param_range shows that the item is locked, don't vary it
+                    _rng=np.fabs(param_ranges[key][1]-param_ranges[key][0])
+                    if _rng<epsilon:
+                        new_guess[key]=guess[key]
+                    else:
+                        step_size=_step*_rng
+                        new_guess[key] = guess[key] + np.random.normal(scale=np.fabs(step_size))
                 new_chi2=chi2(fn(x, **new_guess), y,ye)
                 if accept_prob(old_chi2, new_chi2,T)>np.random.uniform():
                     old_chi2=new_chi2
@@ -69,13 +74,13 @@ def simulated_annealing(fn, *x, **kwargs):
                 #if no convergence, restart by reinitializing T
                 T=old_chi2
                 guess=get_random_samples(1, **param_ranges)
-                if new_chi2<10.*min_chi2:
+                if new_chi2<min_chi2+10.*chi2_lim:
                     #append if chi2 is reasonably small
                     samples.append( [guess, new_chi2] )
 
             #since we are saving each model tried, get rid of absurdly poor models
             min_chi2=min([it[-1] for it in samples])
-            samples=[it for it in samples if it[-1]<10.*min_chi2]
+            samples=[it for it in samples if it[-1]<min_chi2+10.*chi2_lim]
 
             T*=alpha
     except KeyboardInterrupt:
@@ -94,18 +99,18 @@ def param_locked_SA(fn, *x,  **kwargs):
     function to run simulated annealing with locking parameters of interest
     (see Avni 1976)
     """
-    num_steps=int(kwargs.get("num_steps",10))
-    max_steps=int(kwargs.get("max_steps",400))
+    num_steps=int(kwargs.get("num_steps",10)) #num of locked values to test/param
+    max_steps=int(kwargs.get("max_steps",400)) #max num iterations for
     chi2_lim=int(kwargs.get("chi2_lim",4))
 
     param_ranges={k:v for k,v in kwargs.iteritems() if not k in "max_steps chi2_lim".split()}
     param_samples, all_chi2=None,None
     epsilon=1./float(num_steps)
     for param, rng in param_ranges.iteritems():
+        #lock each param
         for val in np.linspace(rng[0],rng[1], num_steps):
             #update the parameter and put into kwargs
-
-            new_rng=sorted([(1-epsilon)*val, (1+epsilon)*val])
+            new_rng=[val,val]
             kwargs[param]=new_rng
             psamp, chi2=simulated_annealing(fn, *x, **kwargs)
             if all_chi2 is None:

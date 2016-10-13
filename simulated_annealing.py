@@ -96,7 +96,8 @@ def simulated_annealing(fn, *x, **kwargs):
 
 def param_locked_SA(fn, *x,  **kwargs):
     """
-    function to run simulated annealing with locking parameters of interest
+    function to run simulated annealing with locking parameters of interest 
+    to estimate confidence intervals
     (see Avni 1976)
     """
     num_steps=int(kwargs.get("num_steps",10)) #num of locked values to test/param

@@ -1,4 +1,4 @@
-#Simulated Annealing
+# Simulated Annealing
 
 This is an implementation of simulated annealing adapted to minimize chi2 of some model fitting data.
 
